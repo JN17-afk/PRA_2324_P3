@@ -1,95 +1,127 @@
 #ifndef HASHTABLE_H
 #define HASHTABLE_H
 
-#include <string>
-#include <stdexcept>
 #include <iostream>
-#include "ListLinked.h"
-#include "TableEntry.h"
-#include "Dict.h"
+#include <stdexcept>
+#include <vector>
+#include <string>
+#include <list>
 
-template <typename V>
-class HashTable : public Dict<V> {
+template <typename T>
+class HashTable {
 private:
-    int n;
-    int max;
-    ListLinked<TableEntry<V>>* table;
+    struct Entry {
+        std::string key;
+        T value;
+    };
 
-    int h(std::string key) {
-        int sum = 0;
+    std::vector<std::list<Entry>> table;
+    size_t current_size;
+    size_t table_capacity;
+
+    size_t hash(const std::string& key) const {
+        size_t hash_value = 0;
         for (char c : key) {
-            sum += static_cast<int>(c);
+            hash_value = (hash_value * 31) + c;
         }
-        return sum % max;
+        return hash_value % table_capacity;
+    }
+
+    void resize() {
+        std::vector<std::list<Entry>> old_table = table;
+        table_capacity *= 2;
+        table = std::vector<std::list<Entry>>(table_capacity);
+
+        current_size = 0;
+        for (const auto& bucket : old_table) {
+            for (const auto& entry : bucket) {
+                insert(entry.key, entry.value);
+            }
+        }
     }
 
 public:
-    HashTable(int size) : n(0), max(size) {
-        table = new ListLinked<TableEntry<V>>[max];
+    HashTable(size_t capacity = 3) : table_capacity(capacity), current_size(0) {
+        table.resize(table_capacity);
     }
 
-    ~HashTable() {
-        delete[] table;
+    friend std::ostream& operator<<(std::ostream& os, const HashTable<T>& dict) {
+        os << "HashTable [entries: " << dict.current_size << ", capacity: " << dict.table_capacity << "]\n";
+        os << "==============\n";
+        for (size_t i = 0; i < dict.table_capacity; ++i) {
+            os << "== Cubeta " << i << " ==\n";
+            os << "List => [";
+            bool first = true;
+            for (const auto& entry : dict.table[i]) {
+                if (!first) os << " ";
+                os << "('" << entry.key << "' => " << entry.value << ")";
+                first = false;
+            }
+            os << "]\n";
+        }
+        os << "==============\n";
+        return os;
     }
 
-    void insert(std::string key, V value) override {
-        int index = h(key);
+    void insert(const std::string& key, const T& value) {
+        if (current_size >= table_capacity / 2) {
+            resize();
+        }
+
+        size_t index = hash(key);
+
         for (const auto& entry : table[index]) {
             if (entry.key == key) {
-                throw std::runtime_error("Key already exists");
+                throw std::runtime_error("Key '" + key + "' already exists!");
             }
         }
-        table[index].push_back(TableEntry<V>(key, value));
-        n++;
+
+        table[index].push_back({key, value});
+        ++current_size;
     }
 
-    V search(std::string key) override {
-        int index = h(key);
+    T search(const std::string& key) {
+        size_t index = hash(key);
+
         for (const auto& entry : table[index]) {
             if (entry.key == key) {
                 return entry.value;
             }
         }
-        throw std::runtime_error("Key not found");
+
+        throw std::runtime_error("Key '" + key + "' not found!");
     }
 
-    V remove(std::string key) override {
-        int index = h(key);
+    bool remove(const std::string& key) {
+        size_t index = hash(key);
+
         for (auto it = table[index].begin(); it != table[index].end(); ++it) {
             if (it->key == key) {
-                V value = it->value;
                 table[index].erase(it);
-                n--;
-                return value;
+                --current_size;
+                return true;
             }
         }
-        throw std::runtime_error("Key not found");
+
+        throw std::runtime_error("Key '" + key + "' not found!");
     }
 
-    int entries() override {
-        return n;
-    }
+    T& operator[](const std::string& key) {
+        size_t index = hash(key);
 
-    int capacity() {
-        return max;
-    }
-
-    friend std::ostream& operator<<(std::ostream &out, const HashTable<V> &ht) {
-        for (int i = 0; i < ht.max; i++) {
-            if (!ht.table[i].empty()) {
-                out << "Bucket " << i << ": ";
-                for (const auto& entry : ht.table[i]) {
-                    out << entry << " ";
-                }
-                out << std::endl;
+        for (auto& entry : table[index]) {
+            if (entry.key == key) {
+                return entry.value;
             }
         }
-        return out;
+
+        throw std::runtime_error("Key '" + key + "' not found!");
     }
 
-    V operator[](std::string key) override {
-        return search(key);
-    }
+    size_t capacity() const { return table_capacity; }
+    size_t entries() const { return current_size; }
 };
 
 #endif
+
+
