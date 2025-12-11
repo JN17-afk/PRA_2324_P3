@@ -24,7 +24,7 @@ template <typename T>
 class BSTree {
 private:
     int nelem;
-    BSNode<T>* root;
+	BSTNode<T>* root;
 
     BSNode<T>* search(BSNode<T>* n, T e) const {
         if (n == nullptr) {

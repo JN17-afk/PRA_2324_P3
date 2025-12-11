@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 #include <stdexcept>
+#include <vector>
+#include <sstream>
 #include "BSTree.h"
 #include "TableEntry.h"
 
@@ -21,44 +23,79 @@ public:
         delete tree;
     }
 
-    friend std::ostream& operator<<(std::ostream &out, const BSTreeDict<V> &bs) {
-        out << *bs.tree;
+    friend std::ostream& operator<<(std::ostream& out, const TableEntry<V>& entry) {
+        out << "('" << entry.key << "' => " << entry.value << ")";
         return out;
     }
 
-    V operator[](std::string key) {
-        TableEntry<V> entry(key, V());  // Creamos una entrada con la clave y valor por defecto
-        return (*tree)[entry].value;
+    friend std::ostream& operator<<(std::ostream& out, const BSTreeDict<V>& dict) {
+        auto v = dict.entries();
+        for (auto& e : v)
+            out << e << " ";
+        return out;
     }
 
     void insert(std::string key, V value) {
-        TableEntry<V> entry(key, value);
-        tree->insert(entry);
+        if (contains(key))
+            throw std::runtime_error("Duplicated element!");
+        tree->insert(TableEntry<V>(key, value));
     }
 
     V search(std::string key) {
-        TableEntry<V> entry(key, V());  // Creamos una entrada con la clave y valor por defecto
-        return (*tree)[entry].value;
+        try {
+            return (*tree)[TableEntry<V>(key, V())].value;
+        } catch (...) {
+            throw std::runtime_error("Element not found!");
+        }
     }
 
-    void remove(std::string key) {
-        TableEntry<V> entry(key, V());
-        tree->remove(entry);
+    V operator[](std::string key) {
+        try {
+            return (*tree)[TableEntry<V>(key, V())].value;
+        } catch (...) {
+            throw std::runtime_error("Element not found!");
+        }
+    }
+
+    V remove(std::string key) {
+        if (!contains(key))
+            throw std::runtime_error("Element not found!");
+        TableEntry<V> tmp(key, V());
+        V v = (*tree)[tmp].value;
+        tree->remove(tmp);
+        return v;
     }
 
     bool contains(std::string key) {
-        TableEntry<V> entry(key, V());
         try {
-            (*tree)[entry];  // Si no lanza una excepción, el elemento está presente
+            (*tree)[TableEntry<V>(key, V())];
             return true;
-        } catch (const std::runtime_error&) {
+        } catch (...) {
             return false;
         }
     }
 
-    int size() const {
+    int entries_count() const {
         return tree->size();
+    }
+
+    std::vector<TableEntry<V>> entries() const {
+        std::vector<TableEntry<V>> vec;
+
+        std::stringstream ss;
+        ss << *tree;
+
+        std::string key;
+        V value;
+
+        while (ss >> key >> value) {
+            vec.push_back(TableEntry<V>(key, value));
+        }
+
+        return vec;
     }
 };
 
 #endif
+
+
